@@ -405,23 +405,6 @@ function App() {
                       </div>
                     </div>
                     <div className="stat-box">
-                      <div className="stat-label">Competition</div>
-                      <div style={{ marginTop: 8 }}>
-                        {analysisResult.applicants_count !== undefined && analysisResult.applicants_count !== null ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ 
-                              width: 10, height: 10, borderRadius: '50%', 
-                              background: analysisResult.applicants_count > 300 ? '#ef4444' : analysisResult.applicants_count > 100 ? '#fbbf24' : '#22c55e' 
-                            }} />
-                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{analysisResult.applicants_count}</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>applicants</span>
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Unknown</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="stat-box">
                       <div className="stat-label">Quick Info</div>
                       <div className="marker-row"><span>Mode</span><strong>{analysisResult.work_mode || analysisResult.report?.markers?.work_mode || 'N/A'}</strong></div>
                       <div className="marker-row">
