@@ -50,6 +50,7 @@ class Application(Base):
     # ── Статус заявки ─────────────────────────────────────────────────────────
     # analyzed → tailored → applied → rejected / offer
     status: Mapped[str] = mapped_column(String(50), default="analyzed", nullable=False)
+    kanban_status: Mapped[str] = mapped_column(String(50), default="wishlist", nullable=False)
 
     # ── Результат генерации ───────────────────────────────────────────────────
     gdoc_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

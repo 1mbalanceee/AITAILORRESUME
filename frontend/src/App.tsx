@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, FileText, CheckCircle, Search, 
   ExternalLink, Plus, Trash2, Archive, 
-  AlertCircle, Briefcase, Info
+  AlertCircle, Briefcase, Info, Kanban, History
 } from 'lucide-react';
 import { 
   fetchApplications, analyzeJob, generateResume, 
-  fetchApplicationDetails, deleteApplication, updateApplicationStatus
+  fetchApplicationDetails, deleteApplication, updateApplicationStatus,
+  updateKanbanStatus
 } from './api';
+import KanbanBoard from './components/KanbanBoard';
 import type { ApplicationOut, GenerateResumeResponse } from './api';
 
 const Spinner = () => (
@@ -63,6 +65,7 @@ function App() {
   const [applications, setApplications] = useState<ApplicationOut[]>([]);
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [view, setView] = useState<'main' | 'kanban'>('main');
   
   // App States
   const [url, setUrl] = useState('');
@@ -136,6 +139,7 @@ function App() {
     setAnalysisResult(null);
     setGenResult(null);
     setError(null);
+    setView('main'); // Auto-switch to main view when selecting an application
     try {
       const details = await fetchApplicationDetails(appId);
       setAnalysisResult(details);
@@ -190,6 +194,21 @@ function App() {
     }
   };
 
+  const handleKanbanStatusChange = async (id: number, newStatus: string) => {
+    try {
+      await updateKanbanStatus(id, newStatus);
+      setApplications(prev => prev.map(app => 
+        app.id === id ? { ...app, kanban_status: newStatus } : app
+      ));
+      // Sync with active application details if it's the one being moved
+      if (activeAppId === id) {
+        setAnalysisResult((prev: any) => prev ? { ...prev, kanban_status: newStatus } : null);
+      }
+    } catch (e: any) {
+      setError("Failed to update status: " + e.message);
+    }
+  };
+
   const handleDelete = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     if (!window.confirm("Permanently delete this entry?")) return;
@@ -217,12 +236,29 @@ function App() {
       {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
-          <h1><Sparkles size={24} /> AI Resume Tailor</h1>
+          <h1><Sparkles size={24} /> AI Tailor</h1>
         </div>
         
-        <button className="new-btn" onClick={handleNew}>
-          <Plus size={18} /> New Application
-        </button>
+        <div className="sidebar-nav">
+          <div 
+            className={`nav-item ${view === 'main' ? 'active' : ''}`}
+            onClick={() => setView('main')}
+          >
+            <History size={18} /> Analysis & History
+          </div>
+          <div 
+            className={`nav-item ${view === 'kanban' ? 'active' : ''}`}
+            onClick={() => setView('kanban')}
+          >
+            <Kanban size={18} /> Kanban Board
+          </div>
+        </div>
+
+        <div style={{ padding: '0 16px', marginTop: 24 }}>
+          <button className="new-btn" onClick={() => { setView('main'); handleNew(); }}>
+            <Plus size={18} /> New Application
+          </button>
+        </div>
 
         <div style={{ padding: '0 16px', marginBottom: 16 }}>
           <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
@@ -290,181 +326,205 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${view === 'kanban' ? 'full-width' : ''}`}>
           
           {error && (
-            <div className="error-box" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', gap: '12px' }}>
+            <div className="error-box" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', gap: '12px', zIndex: 100 }}>
               <AlertCircle size={20} />
               <div style={{ flex: 1 }}>{error}</div>
               <button onClick={() => setError(null)}>✕</button>
             </div>
           )}
 
-          {!analysisResult && !isAnalyzing && !isFetchingDetails && (
-            <div className="card">
-              <h2 className="card-title"><Search size={24} /> New Job Analysis</h2>
-              <form onSubmit={handleAnalyze}>
-                <div className="form-group">
-                  <label className="form-label">Job URL</label>
-                  <input type="url" className="form-input" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} />
-                </div>
-                <div style={{ textAlign: 'center', margin: '12px 0', opacity: 0.5 }}>OR</div>
-                <div className="form-group">
-                  <label className="form-label">Job Text</label>
-                  <textarea className="form-textarea" placeholder="Paste JD here..." value={text} onChange={e => setText(e.target.value)} />
-                </div>
-                <button type="submit" className="btn-primary"><Sparkles size={18} /> Analyze with Gemini</button>
-              </form>
-            </div>
-          )}
-
-          {(isAnalyzing || isGenerating || isFetchingDetails) && (
-            <div className="card" style={{ textAlign: 'center' }}>
-              <ProgressBar 
-                active={isAnalyzing || isGenerating} 
-                label={isAnalyzing ? "Gemini is analyzing the job..." : isGenerating ? "Tailoring your resume & bullets..." : "Fetching details..."} 
-              />
-              <div style={{ marginTop: 24 }}><Spinner /></div>
-            </div>
-          )}
-
-          {analysisResult && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-                <div>
-                  <h2 className="card-title" style={{ marginBottom: 4 }}>{analysisResult.job_title || analysisResult.report?.job_title}</h2>
-                  <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Briefcase size={16} /> {analysisResult.company || analysisResult.report?.company}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {analysisResult.status !== 'archived' ? (
-                    <button className="btn-secondary" onClick={() => handleStatusUpdate('archived')} title="Archive">
-                      <Archive size={18} />
-                    </button>
-                  ) : (
-                    <button className="btn-secondary" onClick={() => handleStatusUpdate('analyzed')} title="Restore">
-                      <Plus size={18} />
-                    </button>
-                  )}
-                  <button className="btn-secondary" onClick={(e) => handleDelete(e, analysisResult.id)} style={{ color: 'var(--danger)' }} title="Delete Permanently">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="results-grid">
-                <div className="stat-box" style={{ textAlign: 'center' }}>
-                  <div className="stat-label">Match Probability</div>
-                  <div className="stat-value score" style={{ color: (analysisResult.match_score || analysisResult.report?.score) > 0.7 ? 'var(--accent)' : '#fbbf24' }}>
-                    {Math.round((analysisResult.match_score || analysisResult.report?.score || 0) * 100)}%
-                  </div>
-                </div>
-                <div className="stat-box">
-                  <div className="stat-label">Competition</div>
-                  <div style={{ marginTop: 8 }}>
-                    {analysisResult.applicants_count !== undefined && analysisResult.applicants_count !== null ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ 
-                          width: 10, height: 10, borderRadius: '50%', 
-                          background: analysisResult.applicants_count > 300 ? '#ef4444' : analysisResult.applicants_count > 100 ? '#fbbf24' : '#22c55e' 
-                        }} />
-                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{analysisResult.applicants_count}</span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>applicants</span>
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Unknown</span>
-                    )}
-                  </div>
-                </div>
-                <div className="stat-box">
-                  <div className="stat-label">Quick Info</div>
-                  <div className="marker-row"><span>Mode</span><strong>{analysisResult.work_mode || analysisResult.report?.markers?.work_mode || 'N/A'}</strong></div>
-                  <div className="marker-row"><span>Status</span><strong style={{ color: 'var(--primary)', textTransform: 'uppercase' }}>{analysisResult.status}</strong></div>
-                </div>
-              </div>
-
-              <div className="recommendation-box">
-                <Info size={18} style={{ float: 'left', marginRight: 12, color: 'var(--primary)' }} />
-                {analysisResult.report?.recommendation}
-              </div>
-
-              <div style={{ marginTop: 24 }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: 12, color: 'var(--accent)' }}>Matched Skills</h3>
-                <div className="skills-list">
-                  {(analysisResult.report?.matched_skills || []).map((s: string, i: number) => (
-                    <span key={i} className="skill-tag matched">{s}</span>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 16 }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: 12, color: '#f87171' }}>Missing Skills (Gaps)</h3>
-                <div className="skills-list">
-                  {(analysisResult.report?.missing_skills || []).map((s: string, i: number) => (
-                    <span key={i} className="skill-tag missing">{s}</span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Generation Section */}
-              {!genResult && !isGenerating && (
-                <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
-                  <h3 style={{ marginBottom: 16 }}>Generate Tailored Assets</h3>
-                  <div className="form-group">
-                    <label className="form-label">Add a note for the AI (Optional)</label>
-                    <input className="form-input" placeholder="e.g. emphasize my leadership skills..." value={customNote} onChange={e => setCustomNote(e.target.value)} />
-                  </div>
-                  <button className="btn-primary" onClick={handleGenerate}><FileText size={18} /> Tailor Resume & Bullets</button>
+          {view === 'kanban' ? (
+            <KanbanBoard 
+              applications={applications} 
+              onStatusChange={handleKanbanStatusChange} 
+              onCardClick={(id) => handleSelectApplication(id)}
+            />
+          ) : (
+            <>
+              {!analysisResult && !isAnalyzing && !isFetchingDetails && (
+                <div className="card">
+                  <h2 className="card-title"><Search size={24} /> New Job Analysis</h2>
+                  <form onSubmit={handleAnalyze}>
+                    <div className="form-group">
+                      <label className="form-label">Job URL</label>
+                      <input type="url" className="form-input" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} />
+                    </div>
+                    <div style={{ textAlign: 'center', margin: '12px 0', opacity: 0.5 }}>OR</div>
+                    <div className="form-group">
+                      <label className="form-label">Job Text</label>
+                      <textarea className="form-textarea" placeholder="Paste JD here..." value={text} onChange={e => setText(e.target.value)} />
+                    </div>
+                    <button type="submit" className="btn-primary"><Sparkles size={18} /> Analyze with Gemini</button>
+                  </form>
                 </div>
               )}
 
-              {genResult && (
-                <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h3 style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle size={20} /> Tailoring Ready</h3>
-                    {genResult.status !== 'applied' && (
-                      <button className="btn-secondary" onClick={() => handleStatusUpdate('applied')} style={{ background: 'var(--accent)', color: 'white', border: 'none' }}>
-                        Mark as Applied
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                    <a href={genResult.gdoc_url!} target="_blank" rel="noreferrer" className="gdoc-link" style={{ marginTop: 0, flex: 1 }}>
-                      <ExternalLink size={18} /> Open Resume (Google Doc)
-                    </a>
-                  </div>
+              {(isAnalyzing || isGenerating || isFetchingDetails) && (
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <ProgressBar 
+                    active={isAnalyzing || isGenerating} 
+                    label={isAnalyzing ? "Gemini is analyzing the job..." : isGenerating ? "Tailoring your resume & bullets..." : "Fetching details..."} 
+                  />
+                  <div style={{ marginTop: 24 }}><Spinner /></div>
+                </div>
+              )}
 
-                  <div className="cover-letter">
-                    <strong style={{ display: 'block', marginBottom: 8 }}>Cover Letter Preview:</strong>
-                    {analysisResult.cover_letter || genResult.cover_letter_preview}...
-                  </div>
-
-                  {genResult.changes && genResult.changes.length > 0 && (
-                    <div style={{ marginTop: 32 }}>
-                      <h3 style={{ fontSize: '1.1rem', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Sparkles size={18} style={{ color: 'var(--accent)' }} /> 
-                        Key Resume Adjustments
-                      </h3>
-                      <div className="changes-list">
-                        {genResult.changes.map((change, i) => (
-                          <div key={i} className="change-item">
-                            <div className="change-original">{change.original}</div>
-                            <div className="change-tailored">{change.tailored}</div>
-                            {change.reason && (
-                              <div className="change-reason">
-                                <Info size={12} /> {change.reason}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+              {analysisResult && (
+                <div className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                    <div>
+                      <h2 className="card-title" style={{ marginBottom: 4 }}>{analysisResult.job_title || analysisResult.report?.job_title}</h2>
+                      <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Briefcase size={16} /> {analysisResult.company || analysisResult.report?.company}
                       </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {analysisResult.status !== 'archived' ? (
+                        <button className="btn-secondary" onClick={() => handleStatusUpdate('archived')} title="Archive">
+                          <Archive size={18} />
+                        </button>
+                      ) : (
+                        <button className="btn-secondary" onClick={() => handleStatusUpdate('analyzed')} title="Restore">
+                          <Plus size={18} />
+                        </button>
+                      )}
+                      <button className="btn-secondary" onClick={(e) => handleDelete(e, analysisResult.id)} style={{ color: 'var(--danger)' }} title="Delete Permanently">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="results-grid">
+                    <div className="stat-box" style={{ textAlign: 'center' }}>
+                      <div className="stat-label">Match Probability</div>
+                      <div className="stat-value score" style={{ color: (analysisResult.match_score || analysisResult.report?.score) > 0.7 ? 'var(--accent)' : '#fbbf24' }}>
+                        {Math.round((analysisResult.match_score || analysisResult.report?.score || 0) * 100)}%
+                      </div>
+                    </div>
+                    <div className="stat-box">
+                      <div className="stat-label">Competition</div>
+                      <div style={{ marginTop: 8 }}>
+                        {analysisResult.applicants_count !== undefined && analysisResult.applicants_count !== null ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ 
+                              width: 10, height: 10, borderRadius: '50%', 
+                              background: analysisResult.applicants_count > 300 ? '#ef4444' : analysisResult.applicants_count > 100 ? '#fbbf24' : '#22c55e' 
+                            }} />
+                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{analysisResult.applicants_count}</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>applicants</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>Unknown</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="stat-box">
+                      <div className="stat-label">Quick Info</div>
+                      <div className="marker-row"><span>Mode</span><strong>{analysisResult.work_mode || analysisResult.report?.markers?.work_mode || 'N/A'}</strong></div>
+                      <div className="marker-row">
+                        <span>Kanban</span>
+                        <select 
+                          className="status-select kanban"
+                          value={analysisResult.kanban_status || 'wishlist'}
+                          onChange={(e) => handleKanbanStatusChange(analysisResult.id, e.target.value)}
+                        >
+                          <option value="wishlist">WISHLIST</option>
+                          <option value="applied">APPLIED</option>
+                          <option value="interview">INTERVIEW</option>
+                          <option value="offer">OFFER</option>
+                          <option value="rejected">REJECTED</option>
+                        </select>
+                      </div>
+                      <div className="marker-row"><span>Status</span><strong style={{ color: 'var(--primary)', textTransform: 'uppercase' }}>{analysisResult.status}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="recommendation-box">
+                    <Info size={18} style={{ float: 'left', marginRight: 12, color: 'var(--primary)' }} />
+                    {analysisResult.report?.recommendation}
+                  </div>
+
+                  <div style={{ marginTop: 24 }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: 12, color: 'var(--accent)' }}>Matched Skills</h3>
+                    <div className="skills-list">
+                      {(analysisResult.report?.matched_skills || []).map((s: string, i: number) => (
+                        <span key={i} className="skill-tag matched">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 16 }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: 12, color: '#f87171' }}>Missing Skills (Gaps)</h3>
+                    <div className="skills-list">
+                      {(analysisResult.report?.missing_skills || []).map((s: string, i: number) => (
+                        <span key={i} className="skill-tag missing">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Generation Section */}
+                  {!genResult && !isGenerating && (
+                    <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
+                      <h3 style={{ marginBottom: 16 }}>Generate Tailored Assets</h3>
+                      <div className="form-group">
+                        <label className="form-label">Add a note for the AI (Optional)</label>
+                        <input className="form-input" placeholder="e.g. emphasize my leadership skills..." value={customNote} onChange={e => setCustomNote(e.target.value)} />
+                      </div>
+                      <button className="btn-primary" onClick={handleGenerate}><FileText size={18} /> Tailor Resume & Bullets</button>
+                    </div>
+                  )}
+
+                  {genResult && (
+                    <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle size={20} /> Tailoring Ready</h3>
+                        {genResult.status !== 'applied' && (
+                          <button className="btn-secondary" onClick={() => handleStatusUpdate('applied')} style={{ background: 'var(--accent)', color: 'white', border: 'none' }}>
+                            Mark as Applied
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                        <a href={genResult.gdoc_url!} target="_blank" rel="noreferrer" className="gdoc-link" style={{ marginTop: 0, flex: 1 }}>
+                          <ExternalLink size={18} /> Open Resume (Google Doc)
+                        </a>
+                      </div>
+
+                      <div className="cover-letter">
+                        <strong style={{ display: 'block', marginBottom: 8 }}>Cover Letter Preview:</strong>
+                        {analysisResult.cover_letter || genResult.cover_letter_preview}...
+                      </div>
+
+                      {genResult.changes && genResult.changes.length > 0 && (
+                        <div style={{ marginTop: 32 }}>
+                          <h3 style={{ fontSize: '1.1rem', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Sparkles size={18} style={{ color: 'var(--accent)' }} /> 
+                            Key Resume Adjustments
+                          </h3>
+                          <div className="changes-list">
+                            {genResult.changes.map((change, i) => (
+                              <div key={i} className="change-item">
+                                <div className="change-original">{change.original}</div>
+                                <div className="change-tailored">{change.tailored}</div>
+                                {change.reason && (
+                                  <div className="change-reason">
+                                    <Info size={12} /> {change.reason}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

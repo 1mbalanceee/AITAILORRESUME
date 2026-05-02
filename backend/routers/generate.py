@@ -163,6 +163,7 @@ async def get_application(
         "match_score": app.match_score,
         "work_mode": app.work_mode,
         "status": app.status,
+        "kanban_status": app.kanban_status or "wishlist",
         "gdoc_url": app.gdoc_url,
         "cover_letter": app.cover_letter,
         "jd_raw": app.jd_raw,
@@ -201,12 +202,35 @@ async def update_application(
             )
         app.status = body.status
 
+    if body.kanban_status is not None:
+        valid_kanban_statuses = {"wishlist", "applied", "interview", "offer", "rejected"}
+        if body.kanban_status not in valid_kanban_statuses:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Недопустимый kanban статус. Доступные: {valid_kanban_statuses}",
+            )
+        app.kanban_status = body.kanban_status
+
     if body.notes is not None:
         app.notes = body.notes
 
     await db.flush()
     await db.refresh(app)
     return app
+
+
+@router.patch(
+    "/api/applications/{application_id}/status",
+    response_model=ApplicationOut,
+    summary="Обновить kanban статус отклика",
+)
+async def update_kanban_status(
+    application_id: int,
+    body: ApplicationUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> ApplicationOut:
+    """Специальный эндпоинт для обновления статуса на канбан-доске."""
+    return await update_application(application_id, body, db)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

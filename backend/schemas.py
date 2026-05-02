@@ -93,6 +93,7 @@ class ApplicationOut(BaseModel):
     match_score: Optional[float]
     work_mode: Optional[str]
     status: str
+    kanban_status: str
     gdoc_url: Optional[str]
     applicants_count: Optional[int]
 
@@ -102,4 +103,5 @@ class ApplicationOut(BaseModel):
 class ApplicationUpdate(BaseModel):
     """Частичное обновление записи (статус, заметки)."""
     status: Optional[str] = None
+    kanban_status: Optional[str] = None
     notes: Optional[str] = None

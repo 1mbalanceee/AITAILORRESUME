@@ -155,15 +155,22 @@ input, textarea {
 .main-content {
   flex: 1;
   overflow-y: auto;
-  padding: 40px;
+  padding: 0; /* Remove fixed padding to allow full-width components */
   display: flex;
   flex-direction: column;
-  align-items: center;
 }
 
 .content-wrapper {
   max-width: 800px;
   width: 100%;
+  margin: 0 auto;
+  padding: 40px;
+}
+
+.content-wrapper.full-width {
+  max-width: none;
+  padding: 0;
+  margin: 0;
 }
 
 .card {
@@ -445,4 +452,168 @@ input, textarea {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Kanban Board */
+.kanban-container {
+  height: calc(100vh - 80px);
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 24px;
+}
+
+.kanban-grid {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+  width: 100%; /* Fill the container */
+  min-width: 1200px; /* Minimum width to keep columns readable before scrolling */
+}
+
+.kanban-column {
+  flex: 1; /* Make columns expand to fill space */
+  min-width: 220px;
+  max-width: 450px;
+  background: rgba(255, 255, 255, 0.015);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px);
+  transition: background 0.2s;
+}
+
+.kanban-column:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.column-header {
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.column-header h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+
+.column-header .count {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.column-content {
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 100px;
+}
+
+/* Custom scrollbar for column content */
+.column-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.column-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.kanban-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s; /* Remove transform from transitions */
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+.kanban-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* Only apply full transition on hover */
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card.dragging {
+  opacity: 0.2;
+  cursor: grabbing;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.nav-item.active {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent);
+}
+
+.status-select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.status-select:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary);
+}
+
+.status-select.kanban {
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.status-select option {
+  background: var(--bg-panel);
+  color: var(--text-main);
 }

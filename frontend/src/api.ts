@@ -6,10 +6,11 @@ export interface ApplicationOut {
   job_title: string | null;
   company: string | null;
   job_url: string | null;
-  match_score: number | null;
-  work_mode: string | null;
+  match_score?: number;
+  work_mode?: string;
   status: string;
-  gdoc_url: string | null;
+  kanban_status: string;
+  gdoc_url?: string;
   applicants_count: number | null;
 }
 
@@ -100,4 +101,13 @@ export const updateApplicationStatus = async (id: number, status: string): Promi
     body: JSON.stringify({ status })
   });
   if (!res.ok) throw new Error('Failed to update status');
+};
+
+export const updateKanbanStatus = async (id: number, kanban_status: string): Promise<void> => {
+  const res = await fetch(`${API_URL}/api/applications/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kanban_status })
+  });
+  if (!res.ok) throw new Error('Failed to update kanban status');
 };
