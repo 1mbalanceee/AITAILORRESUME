@@ -1,0 +1,55 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+*.env.local
+venv/
+.venv/
+env/
+
+# ── Database ──────────────────────────────────────────────────────────────────
+backend/data/applications.db
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Google Credentials (НИКОГДА не коммитить!) ────────────────────────────────
+backend/credentials.json
+backend/client_secret.json
+*credentials*.json
+*service_account*.json
+*client_secret*.json
+token.json
+*.json
+!backend/data/master_resume.json
+!**/package.json
+!**/package-lock.json
+!**/tsconfig*.json
+!**/eslint.config.js
+!**/vite.config.ts
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.env
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Playwright ────────────────────────────────────────────────────────────────
+playwright/.auth/
