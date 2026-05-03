@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, FileText, CheckCircle, Search, 
   ExternalLink, Plus, Trash2, Archive, 
-  AlertCircle, Briefcase, Info, Kanban, History
+  AlertCircle, Briefcase, Info, Layout, 
+  History, Zap
 } from 'lucide-react';
 import { 
   fetchApplications, analyzeJob, generateResume, 
   fetchApplicationDetails, deleteApplication, updateApplicationStatus,
-  updateKanbanStatus
+  updateKanbanStatus,
+  dismissApplication
 } from './api';
 import KanbanBoard from './components/KanbanBoard';
+import { JobFeed } from './components/JobFeed';
 import type { ApplicationOut, GenerateResumeResponse } from './api';
 
 const Spinner = () => (
@@ -64,8 +67,7 @@ const ProgressBar = ({ active, label }: { active: boolean, label: string }) => {
 function App() {
   const [applications, setApplications] = useState<ApplicationOut[]>([]);
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const [view, setView] = useState<'main' | 'kanban'>('main');
+  const [view, setView] = useState<'main' | 'kanban' | 'feed'>('feed');
   
   // App States
   const [url, setUrl] = useState('');
@@ -92,10 +94,6 @@ function App() {
       console.error(e);
     }
   };
-
-  const filteredApps = applications.filter(app => 
-    showArchived ? app.status === 'archived' : app.status !== 'archived'
-  );
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,10 +137,19 @@ function App() {
     setAnalysisResult(null);
     setGenResult(null);
     setError(null);
-    setView('main'); // Auto-switch to main view when selecting an application
+    setView('main');
     try {
       const details = await fetchApplicationDetails(appId);
-      setAnalysisResult(details);
+      // Ensure report is parsed if it's a string
+      let report = details.report;
+      if (!report && details.match_report) {
+        try {
+          report = JSON.parse(details.match_report);
+        } catch (e) {
+          console.error("Failed to parse match_report", e);
+        }
+      }
+      setAnalysisResult({ ...details, report });
       if (details.gdoc_url) {
         setGenResult({
           application_id: details.id,
@@ -169,7 +176,6 @@ function App() {
     try {
       const res = await generateResume(id, customNote);
       setGenResult(res);
-      // Refresh current view
       const details = await fetchApplicationDetails(id);
       setAnalysisResult(details);
       loadHistory();
@@ -185,7 +191,6 @@ function App() {
     if (!id) return;
     try {
       await updateApplicationStatus(id, newStatus);
-      // Update local state immediately
       setAnalysisResult((prev: any) => ({ ...prev, status: newStatus }));
       if (genResult) setGenResult((prev: any) => ({ ...prev, status: newStatus }));
       loadHistory();
@@ -200,12 +205,43 @@ function App() {
       setApplications(prev => prev.map(app => 
         app.id === id ? { ...app, kanban_status: newStatus } : app
       ));
-      // Sync with active application details if it's the one being moved
       if (activeAppId === id) {
         setAnalysisResult((prev: any) => prev ? { ...prev, kanban_status: newStatus } : null);
       }
     } catch (e: any) {
       setError("Failed to update status: " + e.message);
+    }
+  };
+
+  const handleDismissApplication = async (id: number) => {
+    try {
+      await dismissApplication(id);
+      loadHistory();
+    } catch (e: any) {
+      setError("Failed to dismiss: " + e.message);
+    }
+  };
+
+  const handleAggregateStart = async () => {
+    setIsAnalyzing(true);
+    setError(null);
+    try {
+      const res = await fetch('http://localhost:8000/api/aggregate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywords: ["Product Manager", "Project Manager", "Analyst"], days: 3 })
+      });
+      if (res.ok) {
+        loadHistory();
+        setView('feed');
+      } else {
+        const data = await res.json();
+        throw new Error(data.detail || "Aggregation failed");
+      }
+    } catch (e: any) {
+      setError("Failed to discover jobs: " + e.message);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -229,56 +265,51 @@ function App() {
     setText('');
     setCustomNote('');
     setError(null);
+    setView('main');
   };
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
       <div className="sidebar">
         <div className="sidebar-header">
           <h1><Sparkles size={24} /> AI Tailor</h1>
         </div>
         
-        <div className="sidebar-nav">
+        <nav className="sidebar-nav">
+          <div 
+            className={`nav-item ${view === 'feed' ? 'active' : ''}`}
+            onClick={() => setView('feed')}
+          >
+            <Zap size={18} /> Job Feed
+          </div>
           <div 
             className={`nav-item ${view === 'main' ? 'active' : ''}`}
             onClick={() => setView('main')}
           >
-            <History size={18} /> Analysis & History
+            <History size={18} /> My Pipeline
           </div>
           <div 
             className={`nav-item ${view === 'kanban' ? 'active' : ''}`}
             onClick={() => setView('kanban')}
           >
-            <Kanban size={18} /> Kanban Board
+            <Layout size={18} /> Kanban Board
           </div>
-        </div>
+        </nav>
 
         <div style={{ padding: '0 16px', marginTop: 24 }}>
-          <button className="new-btn" onClick={() => { setView('main'); handleNew(); }}>
-            <Plus size={18} /> New Application
+          <button className="new-btn" onClick={handleNew}>
+            <Plus size={18} />
+            New Application
           </button>
         </div>
 
-        <div style={{ padding: '0 16px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
-            <button 
-              onClick={() => setShowArchived(false)}
-              style={{ flex: 1, padding: '6px', borderRadius: '6px', fontSize: '0.8rem', background: !showArchived ? 'var(--bg-panel)' : 'transparent', color: !showArchived ? 'white' : 'var(--text-muted)' }}
-            >
-              Active
-            </button>
-            <button 
-              onClick={() => setShowArchived(true)}
-              style={{ flex: 1, padding: '6px', borderRadius: '6px', fontSize: '0.8rem', background: showArchived ? 'var(--bg-panel)' : 'transparent', color: showArchived ? 'white' : 'var(--text-muted)' }}
-            >
-              Archive
-            </button>
-          </div>
-        </div>
+
 
         <div className="history-list">
-          {filteredApps.map(app => (
+          {applications
+            .filter(app => app.kanban_status !== null && app.kanban_status !== 'wishlist')
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map(app => (
             <div 
               key={app.id} 
               className={`history-item ${activeAppId === app.id ? 'active' : ''}`}
@@ -336,9 +367,17 @@ function App() {
             </div>
           )}
 
-          {view === 'kanban' ? (
+          {view === 'feed' ? (
+            <JobFeed 
+              applications={applications.filter(app => app.kanban_status === null || app.kanban_status === 'wishlist')}
+              onSave={(id) => handleKanbanStatusChange(id, 'applied')}
+              onDismiss={handleDismissApplication}
+              onDiscover={handleAggregateStart}
+              isDiscovering={isAnalyzing}
+            />
+          ) : view === 'kanban' ? (
             <KanbanBoard 
-              applications={applications} 
+              applications={applications.filter(app => app.kanban_status !== null && app.kanban_status !== 'wishlist')} 
               onStatusChange={handleKanbanStatusChange} 
               onCardClick={(id) => handleSelectApplication(id)}
             />
@@ -376,9 +415,24 @@ function App() {
                 <div className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                     <div>
-                      <h2 className="card-title" style={{ marginBottom: 4 }}>{analysisResult.job_title || analysisResult.report?.job_title}</h2>
-                      <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Briefcase size={16} /> {analysisResult.company || analysisResult.report?.company}
+                      <h2 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: 8 }}>{analysisResult.job_title || analysisResult.report?.job_title}</h2>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Briefcase size={16} />
+                          {analysisResult.company || analysisResult.report?.company}
+                        </div>
+                        {analysisResult.job_url && (
+                          <a 
+                            href={analysisResult.job_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="link-primary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}
+                          >
+                            <ExternalLink size={14} />
+                            View Vacancy
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12 }}>
@@ -414,7 +468,7 @@ function App() {
                           value={analysisResult.kanban_status || 'wishlist'}
                           onChange={(e) => handleKanbanStatusChange(analysisResult.id, e.target.value)}
                         >
-                          <option value="wishlist">WISHLIST</option>
+                          <option value="wishlist">JOB FEED (REQUIRED)</option>
                           <option value="applied">APPLIED</option>
                           <option value="interview">INTERVIEW</option>
                           <option value="offer">OFFER</option>

@@ -91,9 +91,13 @@ class ApplicationOut(BaseModel):
     company: Optional[str]
     job_url: Optional[str]
     match_score: Optional[float]
+    match_report: Optional[str]
     work_mode: Optional[str]
+    experience_gap: Optional[str]
+    salary_range: Optional[str]
     status: str
-    kanban_status: str
+    kanban_status: Optional[str]
+    is_analyzed: bool
     gdoc_url: Optional[str]
     applicants_count: Optional[int]
 

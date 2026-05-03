@@ -39,7 +39,11 @@ def _get_credentials():
         creds = Credentials.from_authorized_user_file(settings.google_token_path, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                logger.error(f"Ошибка обновления токена Google: {e}")
+                raise Exception("Не удалось подключиться к Google для обновления токена. Проверьте интернет-соединение или настройки VPN.")
         else:
             flow = InstalledAppFlow.from_client_secrets_file(settings.google_credentials_path, SCOPES)
             creds = flow.run_local_server(port=0)

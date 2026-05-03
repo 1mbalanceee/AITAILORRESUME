@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # "live" — использует настоящий Gemini API
     app_mode: str = "mock"
     debug: bool = True
-    cors_origins: List[str] = ["http://localhost:5173"]
+    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174"]
 
     @property
     def is_mock(self) -> bool:

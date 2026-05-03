@@ -18,6 +18,7 @@ from backend.config import settings
 from backend.database import init_db
 from backend.routers.analyze import router as analyze_router
 from backend.routers.generate import router as generate_router
+from backend.routers.aggregate import router as aggregate_router
 
 # ── Логирование ───────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -62,6 +63,7 @@ app.add_middleware(
 # ── Роутеры ──────────────────────────────────────────────────────────────────
 app.include_router(analyze_router)
 app.include_router(generate_router)
+app.include_router(aggregate_router)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

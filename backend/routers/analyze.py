@@ -58,10 +58,11 @@ async def analyze_job(
         jd_raw=jd_text,
         applicants_count=applicants_count,
         match_score=result.get("score"),
-        match_report=str(result),
+        match_report=json.dumps(result, ensure_ascii=False),
         work_mode=result.get("markers", {}).get("work_mode"),
         location_req=result.get("markers", {}).get("location"),
         experience_gap=result.get("markers", {}).get("experience_gap"),
+        salary_range=result.get("markers", {}).get("salary_range"),
         status="analyzed",
     )
     db.add(app)

@@ -46,11 +46,13 @@ class Application(Base):
     work_mode: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # remote/hybrid/onsite
     location_req: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     experience_gap: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    salary_range: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # ── Статус заявки ─────────────────────────────────────────────────────────
     # analyzed → tailored → applied → rejected / offer
     status: Mapped[str] = mapped_column(String(50), default="analyzed", nullable=False)
-    kanban_status: Mapped[str] = mapped_column(String(50), default="wishlist", nullable=False)
+    kanban_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_analyzed: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # ── Результат генерации ───────────────────────────────────────────────────
     gdoc_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

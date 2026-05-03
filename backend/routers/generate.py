@@ -136,10 +136,17 @@ async def get_application(
     
     # Мы возвращаем dict, чтобы включить поля, которых нет в ApplicationOut
     # (например jd_raw, match_report)
-    import ast
     try:
-        report = ast.literal_eval(app.match_report) if app.match_report else {}
-    except:
+        if app.match_report:
+            if app.match_report.startswith('{'):
+                report = json.loads(app.match_report)
+            else:
+                import ast
+                report = ast.literal_eval(app.match_report)
+        else:
+            report = {}
+    except Exception as e:
+        logger.error(f"Failed to parse match_report for id={application_id}: {e}")
         report = {}
 
     try:
